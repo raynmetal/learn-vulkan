@@ -18,5 +18,17 @@ target_sources(
         include/hello_triangle_application.hpp
 )
 
+find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
+find_package(glm 1.0 REQUIRED)
+find_package(Vulkan)
+find_package(assimp 6.0 REQUIRED)
+
+target_link_libraries(hello-triangle PUBLIC
+    Vulkan::Vulkan
+    SDL3::SDL3
+    glm::glm
+    assimp::assimp
+)
+
 set(CPACK_RESOURCE_FILE_README ${CMAKE_CURRENT_SOURCE_DIR}/README.md)
 

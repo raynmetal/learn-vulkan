@@ -1,5 +1,7 @@
-#include "hello_triangle_application.hpp"
+#include <iostream>
+#include <cstdlib>
 
+#include "hello_triangle_application.hpp"
 
 int main() {
     try {
