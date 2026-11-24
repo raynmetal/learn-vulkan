@@ -13,8 +13,10 @@ private:
     void initVulkan();
     void mainLoop();
     void cleanup();
+    void createVulkanInstance();
 
-    std::unique_ptr<vk::raii::Instance> mVulkanInstance {};
+    vk::raii::Context mVulkanContext {};
+    vk::raii::Instance mVulkanInstance { nullptr };
     SDL_Window* mpSDLWindow { nullptr };
 };
 
