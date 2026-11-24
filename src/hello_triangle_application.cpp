@@ -18,10 +18,10 @@ void HelloTriangleApplication::run() {
 void HelloTriangleApplication::initVulkan() {
     assert(mVulkanInstance == nullptr && "This application has already been initialized");
     createVulkanInstance();
+    pickPhysicalDevice();
 }
 
 void HelloTriangleApplication::createVulkanInstance() {
-
     constexpr vk::ApplicationInfo appInfo {
         "Hello Triangle", // application name
         VK_MAKE_VERSION(1, 0, 0), // application version
@@ -30,6 +30,8 @@ void HelloTriangleApplication::createVulkanInstance() {
         vk::ApiVersion14, // api version
     };
 
+    // ====== SET UP VULKAN EXTENSIONS FOR SDL WINDOW RENDERING
+    //
     // check which extensions SDL requires to interface with the window system
     uint32_t sdlExtensionCount { 0 };
     auto sdlExtensions { SDL_Vulkan_GetInstanceExtensions(&sdlExtensionCount) };
@@ -50,6 +52,9 @@ void HelloTriangleApplication::createVulkanInstance() {
     }
     std::cout << "\n";
 
+    // ====== SET UP DESIRED VALIDATION LAYERS (BASED ON BUILD CONFIG)
+    // 
+    //
 #ifdef NDEBUG
     const std::vector<const char*> requiredValidation {};
 #else
@@ -58,7 +63,7 @@ void HelloTriangleApplication::createVulkanInstance() {
     };
 #endif
     auto supportedLayers { mVulkanContext.enumerateInstanceLayerProperties() };
-    std::cout << "Required validation layers:";
+    std::cout << "Required Vulkan validation layers:";
     for(const auto& layer: requiredValidation) {
         std::cout << "\t" << layer;
         auto supportedIter { std::find_if(
@@ -85,11 +90,12 @@ void HelloTriangleApplication::createVulkanInstance() {
     mVulkanInstance = vk::raii::Instance(mVulkanContext, createInfo);
 }
 
+void HelloTriangleApplication::pickPhysicalDevice() {
+}
+
 void HelloTriangleApplication::initWindow() {
     const bool init { SDL_Init(SDL_INIT_VIDEO) };
     assert(init && "Could not initialize SDL3 library");
-    const bool loadVulkanLibrary { SDL_Vulkan_LoadLibrary(nullptr) };
-    assert(loadVulkanLibrary && "Could not load Vulkan library");
     mpSDLWindow = SDL_CreateWindow(
         "Vulkan Triangle",
         800, 600,
@@ -100,7 +106,6 @@ void HelloTriangleApplication::initWindow() {
 void HelloTriangleApplication::mainLoop() {}
 
 void HelloTriangleApplication::cleanup() {
-    SDL_Vulkan_UnloadLibrary();
     SDL_DestroyWindow(mpSDLWindow);
     SDL_Quit();
 }
