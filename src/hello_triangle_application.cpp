@@ -178,7 +178,67 @@ void HelloTriangleApplication::pickPhysicalDevice() {
     std::cout << "Device "
         << candidates.rbegin()->second.getProperties().deviceName
         << " chosen.\n";
-    mVulkanDevice = candidates.rbegin()->second;
+    mVulkanDevicePhysical = candidates.rbegin()->second;
+}
+
+void HelloTriangleApplication::createLogicalDevice() {
+    const std::vector<vk::QueueFamilyProperties> queueFamilyProperties {
+        mVulkanDevicePhysical.getQueueFamilyProperties()
+    };
+
+    // specify that we want to create a graphics command queue
+    const auto queueGraphicsIter {
+        std::find_if(queueFamilyProperties.cbegin(), queueFamilyProperties.cend(),
+            [](const auto& queue) {
+                return !!(queue.queueFlags & vk::QueueFlagBits::eGraphics);
+            }
+        )
+    };
+    const auto graphicsQueueIndex {
+        static_cast<uint32_t>(queueGraphicsIter - queueFamilyProperties.cbegin())
+    };
+    const vk::DeviceQueueCreateInfo deviceQueueCreateInfo {
+        {}, // flags
+        graphicsQueueIndex, // queue index
+    };
+
+    // specify which vulkan features we'd like to use
+    vk::StructureChain<
+        vk::PhysicalDeviceFeatures2,
+        vk::PhysicalDeviceVulkan11Features,
+        vk::PhysicalDeviceVulkan13Features,
+        vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
+    > featureChain {
+        {},
+        {{ .shaderDrawParameters { true }, }},
+        {{ .dynamicRendering { true } }},
+        {{ .extendedDynamicState { true } }},
+    };
+
+    // specify which hardware extensions that we'd like our device to use
+    std::vector<const char*> requiredDeviceExtensions {
+        vk::KHRSwapchainExtensionName
+    };
+
+    vk::DeviceCreateInfo deviceCreateInfo {
+        {},
+        1,
+        &deviceQueueCreateInfo,
+        {},
+        {},
+        static_cast<uint32_t>(requiredDeviceExtensions.size()),
+        requiredDeviceExtensions.data(),
+        {},
+        featureChain.get<vk::PhysicalDeviceFeatures2>(),
+    };
+
+    mVulkanDeviceLogical = vk::raii::Device{ mVulkanDevicePhysical, deviceCreateInfo };
+
+    mVulkanGraphicsQueue = vk::raii::Queue{
+        mVulkanDeviceLogical,
+        graphicsQueueIndex,
+        0, // The index of the only queue we've created for our logical device
+    };
 }
 
 void HelloTriangleApplication::initWindow() {

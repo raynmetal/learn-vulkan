@@ -48,31 +48,57 @@ private:
     void createVulkanInstance();
 
     /**
-     * @brief Retrieves and stores software representation of best GPU hardware
-     * available on this platform.
+     * @brief Retrieves and stores about the best GPU hardware available on this
+     * platform.
      *
      */
     void pickPhysicalDevice();
 
     /**
-     * @brief A pointer to some kind of state struct, with wrappers over C-like vulkan
+     * @brief Creates a logical device exposing the capabilities of the selected
+     * physical GPU device.
+     *
+     */
+    void createLogicalDevice();
+
+    /**
+     * @brief A pointer to some kind of state struct, with wrappers over C-like Vulkan
      * functions describing the current platform.
+     *
      */
     vk::raii::Context mVulkanContext {};
 
     /**
      * @brief Vulkan instance, analogous to OpenGL state context, or the stuff actually
-     * keeping track of GPU-allocated resources and their CPU handles.
+     * keeping track of this application's GPU resources and tags.
      *
      */
     vk::raii::Instance mVulkanInstance { nullptr };
 
     /**
-     * @brief Software representation of GPU hardware available on this platform being
-     * utilized for rendering.
+     * @brief Information about (w.r.t. this application) best GPU hardware available on
+     * this platform, to be utilized for rendering.
      *
      */
-    vk::raii::PhysicalDevice mVulkanDevice { nullptr };
+    vk::raii::PhysicalDevice mVulkanDevicePhysical { nullptr };
+
+    /**
+     * @brief Software representation of live GPU being utilized for rendering, with
+     * required features explicitly enabled.
+     *
+     * This is the interface through which GPU resources are allocated and tagged, e.g.,
+     * shaders, textures, geometry, etc.
+     *
+     */
+    vk::raii::Device mVulkanDeviceLogical { nullptr };
+
+    /**
+     * @brief Command queue on which all graphics related rendering commands will be
+     * sent, such as (smaller) buffer updates, depth test versions, fragment or vertex
+     * parameter settings, etc.
+     *
+     */
+    vk::raii::Queue mVulkanGraphicsQueue { nullptr };
 
     /**
      * @brief SDL wrapper over OS specific Window, allowing us to query information about
