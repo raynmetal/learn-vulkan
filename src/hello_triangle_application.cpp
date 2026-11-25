@@ -1,4 +1,5 @@
 #include <iostream>
+#include <map>
 #include <string>
 
 #include <SDL3/SDL.h>
@@ -33,10 +34,10 @@ void HelloTriangleApplication::createVulkanInstance() {
     // ====== SET UP VULKAN EXTENSIONS FOR SDL WINDOW RENDERING
     //
     // check which extensions SDL requires to interface with the window system
-    uint32_t sdlExtensionCount { 0 };
-    auto sdlExtensions { SDL_Vulkan_GetInstanceExtensions(&sdlExtensionCount) };
+    uint32_t sdlExtensionCount;
+    const auto sdlExtensions { SDL_Vulkan_GetInstanceExtensions(&sdlExtensionCount) };
     // check that all extensions needed by SDL are supported
-    auto supportedExtensions { mVulkanContext.enumerateInstanceExtensionProperties() };
+    const auto supportedExtensions { mVulkanContext.enumerateInstanceExtensionProperties() };
     std::cout << "Required SDL Vulkan extensions:";
     for(uint32_t i { 0 }; i < sdlExtensionCount; ++i) {
         std::cout << "\t" << sdlExtensions[i];
@@ -62,7 +63,7 @@ void HelloTriangleApplication::createVulkanInstance() {
         "VK_LAYER_KHRONOS_validation",
     };
 #endif
-    auto supportedLayers { mVulkanContext.enumerateInstanceLayerProperties() };
+    const auto supportedLayers { mVulkanContext.enumerateInstanceLayerProperties() };
     std::cout << "Required Vulkan validation layers:";
     for(const auto& layer: requiredValidation) {
         std::cout << "\t" << layer;
@@ -91,6 +92,93 @@ void HelloTriangleApplication::createVulkanInstance() {
 }
 
 void HelloTriangleApplication::pickPhysicalDevice() {
+    const std::vector<const char*> requiredDeviceExtensions {
+        vk::KHRSwapchainExtensionName,
+    };
+    const auto physicalDevices { mVulkanInstance.enumeratePhysicalDevices() };
+    if(physicalDevices.empty()) {
+        throw std::runtime_error("failed to find GPUs with Vulkan support!");
+    }
+
+    // use an ordered map to sort candidates by increasing score, then
+    // pick the device with the highest score
+    std::multimap<int, vk::raii::PhysicalDevice> candidates {};
+    for(const auto& device: physicalDevices) {
+
+        const auto deviceProperties { device.getProperties() };
+        const auto deviceFeatures { device.getFeatures() };
+
+        std::cout << "Checking device " << deviceProperties.deviceName << "\n";
+
+        // guard: ensure our Vulkan API version is supported
+        const bool supportsVulkan1_3 {
+            deviceProperties.apiVersion >= vk::ApiVersion13
+        };
+        if(!supportsVulkan1_3) {
+            std::cout << "\tDoes not support Vulkan 1.3 API\n";
+            continue;
+        }
+        std::cout << "\tSupports Vulkan 1.3 API\n";
+
+        // guard: ensure graphics work queues are supported
+        const auto queueFamilies { device.getQueueFamilyProperties() };
+        const bool supportsGraphics {
+            std::find_if(
+                queueFamilies.cbegin(), queueFamilies.cend(),
+                [](const auto& queueFamily) {
+                    return !!(queueFamily.queueFlags & vk::QueueFlagBits::eGraphics);
+                }
+            ) != queueFamilies.cend()
+        };
+        if(!supportsGraphics) {
+            std::cout << "\tDoes not support graphics work\n";
+            continue;
+        }
+        std::cout << "\tSupports graphics work\n";
+
+        // guard: ensure required extensions are available
+        const auto availableExtensions { device.enumerateDeviceExtensionProperties() };
+        const bool supportsRequiredExtensions { [&](){
+            for(const auto& extension: requiredDeviceExtensions) {
+                const bool isUnsupported {
+                    std::find_if(availableExtensions.cbegin(), availableExtensions.cend(),
+                        [&](const auto& availableExtension) {
+                            return std::string{ availableExtension.extensionName } == extension;
+                        }
+                    ) == availableExtensions.cend()
+                };
+                if(isUnsupported) { return false; }
+            }
+            return true;
+        } () };
+        if(!supportsRequiredExtensions) {
+            std::cout << "\tDoes not support required extensions\n";
+            continue;
+        }
+        std::cout << "\tSupports required extensions\n";
+
+        // checkpoint: basic requirements met; score and add to candidate list
+
+        // compute device score relative to other devices
+        uint32_t score { 0 };
+        // discrete GPUs are better
+        if(deviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
+            score += 1000;
+        }
+        // more texture memory is better
+        score += deviceProperties.limits.maxImageDimension2D;
+
+        candidates.insert(std::make_pair(score, device));
+    }
+
+    if(candidates.empty()) {
+        throw std::runtime_error("failed to find a suitable GPU!");
+    }
+
+    std::cout << "Device "
+        << candidates.rbegin()->second.getProperties().deviceName
+        << " chosen.\n";
+    mVulkanDevice = candidates.rbegin()->second;
 }
 
 void HelloTriangleApplication::initWindow() {
