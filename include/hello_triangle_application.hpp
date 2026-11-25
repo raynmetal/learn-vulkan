@@ -27,6 +27,14 @@ private:
     void initVulkan();
 
     /**
+     * @brief Creates a Vulkan render target whose resources are actually managed by the
+     * underlying operating system, where the target is the surface of our application's
+     * window.
+     *
+     */
+    void createVulkanSurface();
+
+    /**
      * @brief Loop scheduling rendering calls and application udpates as fast as possible
      * on the current platform.
      *
@@ -74,6 +82,13 @@ private:
      *
      */
     vk::raii::Instance mVulkanInstance { nullptr };
+
+    /**
+     * @brief The "surface" of the window allocated to our application by the platform's
+     * operating system, a render target for our Vulkan rendering pipeline.
+     *
+     */
+    vk::raii::SurfaceKHR mVulkanSurface { nullptr };
 
     /**
      * @brief Information about (w.r.t. this application) best GPU hardware available on

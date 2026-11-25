@@ -19,7 +19,9 @@ void HelloTriangleApplication::run() {
 void HelloTriangleApplication::initVulkan() {
     assert(mVulkanInstance == nullptr && "This application has already been initialized");
     createVulkanInstance();
+    createVulkanSurface();
     pickPhysicalDevice();
+    createLogicalDevice();
 }
 
 void HelloTriangleApplication::createVulkanInstance() {
@@ -89,6 +91,9 @@ void HelloTriangleApplication::createVulkanInstance() {
     };
 
     mVulkanInstance = vk::raii::Instance(mVulkanContext, createInfo);
+}
+
+void HelloTriangleApplication::createVulkanSurface() {
 }
 
 void HelloTriangleApplication::pickPhysicalDevice() {
@@ -197,9 +202,14 @@ void HelloTriangleApplication::createLogicalDevice() {
     const auto graphicsQueueIndex {
         static_cast<uint32_t>(queueGraphicsIter - queueFamilyProperties.cbegin())
     };
+    const std::array<float, 1> queuePriorities {
+        1.f,
+    };
     const vk::DeviceQueueCreateInfo deviceQueueCreateInfo {
         {}, // flags
         graphicsQueueIndex, // queue index
+        1,
+        queuePriorities.data()
     };
 
     // specify which vulkan features we'd like to use
@@ -210,9 +220,17 @@ void HelloTriangleApplication::createLogicalDevice() {
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
     > featureChain {
         {},
-        {{ .shaderDrawParameters { true }, }},
-        {{ .dynamicRendering { true } }},
-        {{ .extendedDynamicState { true } }},
+        vk::PhysicalDeviceVulkan11Features {
+            {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+            true, {}
+        },
+        vk::PhysicalDeviceVulkan13Features {
+            {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+            true, {}, {}, {}
+        },
+        vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT {
+            true
+        },
     };
 
     // specify which hardware extensions that we'd like our device to use
