@@ -94,6 +94,12 @@ void HelloTriangleApplication::createVulkanInstance() {
 }
 
 void HelloTriangleApplication::createVulkanSurface() {
+    // SDL's Vulkan surface creation doesn't understand vk::raii, so we use
+    // the C interface here.
+    VkSurfaceKHR _surface;
+    SDL_Vulkan_CreateSurface(mpSDLWindow, *mVulkanInstance, nullptr, &_surface);
+
+    mVulkanSurface = vk::raii::SurfaceKHR(mVulkanInstance, _surface);
 }
 
 void HelloTriangleApplication::pickPhysicalDevice() {
@@ -192,16 +198,26 @@ void HelloTriangleApplication::createLogicalDevice() {
     };
 
     // specify that we want to create a graphics command queue
-    const auto queueGraphicsIter {
-        std::find_if(queueFamilyProperties.cbegin(), queueFamilyProperties.cend(),
-            [](const auto& queue) {
-                return !!(queue.queueFlags & vk::QueueFlagBits::eGraphics);
-            }
-        )
-    };
-    const auto graphicsQueueIndex {
-        static_cast<uint32_t>(queueGraphicsIter - queueFamilyProperties.cbegin())
-    };
+    uint32_t potentialGraphicsQueueIndex { static_cast<uint32_t>(~0) };
+    for(auto i { 0 }; i < queueFamilyProperties.size(); ++i) {
+        const auto& queue { queueFamilyProperties[i] };
+        const bool supportsGraphics {
+            !!(queue.queueFlags & vk::QueueFlagBits::eGraphics)
+        };
+        const bool supportsPresent { static_cast<bool>(
+            mVulkanDevicePhysical.getSurfaceSupportKHR(i, *mVulkanSurface)
+        ) };
+        if(supportsGraphics && supportsPresent) {
+            potentialGraphicsQueueIndex = i;
+            break;
+        }
+    }
+    if(potentialGraphicsQueueIndex == ~0) {
+        throw std::runtime_error(
+            "Could not find a queue for graphics and present -> terminating"
+        );
+    }
+    const auto graphicsQueueIndex { potentialGraphicsQueueIndex };
     const std::array<float, 1> queuePriorities {
         1.f,
     };
@@ -212,8 +228,12 @@ void HelloTriangleApplication::createLogicalDevice() {
         queuePriorities.data()
     };
 
+    // NOTE: In future -- just use default constructor, then modify whichever
+    // fields I want *afterwards*.  Specifying which fields I'd like to customize
+    // at construction appears to be unreasonable here.
+    //
     // specify which vulkan features we'd like to use
-    vk::StructureChain<
+    const vk::StructureChain<
         vk::PhysicalDeviceFeatures2,
         vk::PhysicalDeviceVulkan11Features,
         vk::PhysicalDeviceVulkan13Features,
