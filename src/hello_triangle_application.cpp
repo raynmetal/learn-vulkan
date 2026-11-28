@@ -1,6 +1,8 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <limits>
+#include <algorithm>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
@@ -8,6 +10,8 @@
 #include <vulkan/vulkan_raii.hpp>
 
 #include "hello_triangle_application.hpp"
+
+
 
 void HelloTriangleApplication::run() {
     initWindow();
@@ -22,6 +26,7 @@ void HelloTriangleApplication::initVulkan() {
     createVulkanSurface();
     pickPhysicalDevice();
     createLogicalDevice();
+    createSwapChain();
 }
 
 void HelloTriangleApplication::createVulkanInstance() {
@@ -102,9 +107,23 @@ void HelloTriangleApplication::createVulkanSurface() {
     mVulkanSurface = vk::raii::SurfaceKHR(mVulkanInstance, _surface);
 }
 
+void HelloTriangleApplication::createSwapChain() {
+    // Get supported swap chain configuration taking into account device capabilities
+    // and the Vulkan surface we've been provided.
+    const auto surfaceCapabilities {
+        mVulkanDevicePhysical.getSurfaceCapabilitiesKHR(*mVulkanSurface)
+    };
+    const auto availableFormats {
+        mVulkanDevicePhysical.getSurfaceFormatsKHR(*mVulkanSurface)
+    };
+    const auto availablePresentModes {
+        mVulkanDevicePhysical.getSurfacePresentModesKHR(*mVulkanSurface)
+    };
+}
+
 void HelloTriangleApplication::pickPhysicalDevice() {
     const std::vector<const char*> requiredDeviceExtensions {
-        vk::KHRSwapchainExtensionName,
+        vk::KHRSwapchainExtensionName, // ability to present images to the screen
     };
     const auto physicalDevices { mVulkanInstance.enumeratePhysicalDevices() };
     if(physicalDevices.empty()) {
@@ -294,5 +313,63 @@ void HelloTriangleApplication::mainLoop() {}
 void HelloTriangleApplication::cleanup() {
     SDL_DestroyWindow(mpSDLWindow);
     SDL_Quit();
+}
+
+vk::SurfaceFormatKHR HelloTriangleApplication::ChooseSwapSurfaceFormat(
+    const std::vector<vk::SurfaceFormatKHR>& availableFormats
+) {
+    assert(!availableFormats.empty());
+
+    constexpr vk::SurfaceFormatKHR desiredFormat {
+        vk::Format::eB8G8R8A8Srgb,
+        vk::ColorSpaceKHR::eSrgbNonlinear,
+    };
+    const auto selectedFormat { std::find(
+        availableFormats.cbegin(), availableFormats.cend(),
+        desiredFormat
+    ) };
+
+    // guard: our top choice isn't present, return whatever
+    if(selectedFormat == availableFormats.cend()) {
+        return availableFormats[0];
+    }
+
+    // return our top choice
+    return desiredFormat;
+}
+
+vk::PresentModeKHR HelloTriangleApplication::ChooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& availableModes) {
+    const auto supportsFIFO {
+        std::find(availableModes.cbegin(), availableModes.cend(),
+            vk::PresentModeKHR::eFifo
+        ) != availableModes.cend()
+    };
+    assert(supportsFIFO && "This device doesn't support our baseline present mode FIFO");
+
+    const auto supportsMailbox {
+        std::find(availableModes.cbegin(), availableModes.cend(),
+            vk::PresentModeKHR::eMailbox
+        ) != availableModes.cend()
+    };
+
+    return supportsMailbox? vk::PresentModeKHR::eMailbox: vk::PresentModeKHR::eFifo;
+}
+
+vk::Extent2D HelloTriangleApplication::chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities) {
+    // guard: allow the window manager to set our extent on our behalf, which is the
+    // usual case and requires us to do nothing
+    constexpr auto undefined { std::numeric_limits<uint32_t>::max() };
+    if(capabilities.currentExtent.width != undefined) {
+        return capabilities.currentExtent;
+    }
+
+    // window manager has told us to set our extent ourselves
+    int width, height;
+    SDL_GetWindowSizeInPixels(mpSDLWindow, &width, &height);
+
+    return {
+        std::clamp<uint32_t>(width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
+        std::clamp<uint32_t>(height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
+    };
 }
 

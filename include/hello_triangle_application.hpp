@@ -6,6 +6,7 @@
 
 class HelloTriangleApplication {
 public:
+
     /**
      * @brief Function that initializes SDL and this application's Window, and manages
      * the application loop.
@@ -14,6 +15,38 @@ public:
     void run();
 
 private:
+
+    /**
+     * @brief Select the surface format that best suits our needs.
+     *
+     * Here, we want 32 bit BGRA in standard, non-linear space
+     *
+     */
+    static vk::SurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats);
+    /**
+     * @brief Select the presentation mode best suited for the application.
+     *
+     * - *eImmediate:* present as soon as result is available, resulting in screen tearing.
+     * - *eFifo:* to avoid screen tearing, where presentation happens strictly at "vertical
+     *   blanks," similar to vSync; better for mobile devices.
+     * - *eFifoRelaxed:* present as soon as possible if last vertical blank had no images
+     *   queued.
+     * - *eMailbox:* present at blanks, but allow oldest images on queue to be replaced if
+     *   newer results are available, known as "triple buffering."
+     *
+     *
+     */
+    static vk::PresentModeKHR ChooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& availablePresentModes);
+
+    /**
+     * @brief Select the resolution of the swap chain images, usually the resolution of the
+     * allocated window in pixels.
+     *
+     * @warning Requires SDL to have allocated a window on our behalf, or this will fail
+     *
+     */
+    vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities);
+
     /**
      * @brief Makes SDL create a Vulkan-compatible window on our behalf
      *
@@ -54,6 +87,16 @@ private:
      *
      */
     void createVulkanInstance();
+
+    /**
+     * @brief Creates an array of images/render targets, of which at any given time at
+     * most one is being presented to the screen.
+     *
+     * The manner of acquiring images to render to, and the order of their presentation,
+     * depends on the configuration of our swap chain.
+     *
+     */
+    void createSwapChain();
 
     /**
      * @brief Retrieves and stores about the best GPU hardware available on this
