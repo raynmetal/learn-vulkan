@@ -11,8 +11,6 @@
 
 #include "hello_triangle_application.hpp"
 
-
-
 void HelloTriangleApplication::run() {
     initWindow();
     initVulkan();
@@ -119,6 +117,45 @@ void HelloTriangleApplication::createSwapChain() {
     const auto availablePresentModes {
         mVulkanDevicePhysical.getSurfacePresentModesKHR(*mVulkanSurface)
     };
+    const uint32_t minImageCount {
+        ChooseSwapMinImageCount(surfaceCapabilities)
+    };
+    const vk::PresentModeKHR presentMode {
+        ChooseSwapPresentMode(availablePresentModes)
+    };
+    mSwapChainExtent = chooseSwapExtent(surfaceCapabilities);
+    mSwapChainSurfaceFormat = ChooseSwapSurfaceFormat(availableFormats);
+
+    // Configure swap chain construction parameter struct
+    vk::SwapchainCreateInfoKHR swapChainCreateInfo { };
+    swapChainCreateInfo.surface = *mVulkanSurface;
+    swapChainCreateInfo.minImageCount = minImageCount;
+    swapChainCreateInfo.imageFormat = mSwapChainSurfaceFormat.format;
+    swapChainCreateInfo.imageColorSpace = mSwapChainSurfaceFormat.colorSpace;
+    swapChainCreateInfo.imageExtent = mSwapChainExtent;
+    // number of layers each image consists of, usually 1 unless application
+    // uses stereoscopic 3D
+    swapChainCreateInfo.imageArrayLayers = 1;
+    // we render colors to the images, hence, they're color attachments
+    swapChainCreateInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
+    // only one queue family at a time may possess and write to an image
+    swapChainCreateInfo.imageSharingMode = vk::SharingMode::eExclusive;
+    // transform applied to images in the swap chain, if supported
+    swapChainCreateInfo.preTransform = surfaceCapabilities.currentTransform;
+    // whether this window will need to be blended with other windows by the window
+    // manager (in our case, it won't)
+    swapChainCreateInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+    swapChainCreateInfo.presentMode = presentMode;
+    // we don't care about accurately reading colors on pixels that are obscured
+    // by other windows, or outside the boundaries of the desktop
+    swapChainCreateInfo.clipped = true;
+    // in case we're creating a new swap chain in response to a resize event,
+    // a pointer to the old swap chain
+    swapChainCreateInfo.oldSwapchain = nullptr;
+
+    // actually create and store reference to the swap chain and its images
+    mSwapChain = vk::raii::SwapchainKHR{ mVulkanDeviceLogical, swapChainCreateInfo };
+    mSwapChainImages = mSwapChain.getImages();
 }
 
 void HelloTriangleApplication::pickPhysicalDevice() {
@@ -311,6 +348,11 @@ void HelloTriangleApplication::initWindow() {
 void HelloTriangleApplication::mainLoop() {}
 
 void HelloTriangleApplication::cleanup() {
+    // swap chain destructor causes seg fault (I think) because it's called after
+    // the destruction of its owning Vulkan instance
+    mSwapChainImages.clear();
+    mSwapChain = nullptr;
+
     SDL_DestroyWindow(mpSDLWindow);
     SDL_Quit();
 }
@@ -371,5 +413,16 @@ vk::Extent2D HelloTriangleApplication::chooseSwapExtent(const vk::SurfaceCapabil
         std::clamp<uint32_t>(width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
         std::clamp<uint32_t>(height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
     };
+}
+
+uint32_t HelloTriangleApplication::ChooseSwapMinImageCount(const vk::SurfaceCapabilitiesKHR& capabilities) {
+    auto minImageCount { std::max(3u, capabilities.minImageCount) };
+    if(
+        (0 < capabilities.maxImageCount)
+        && (capabilities.maxImageCount < minImageCount)
+    ) {
+        minImageCount = capabilities.maxImageCount;
+    }
+    return minImageCount;
 }
 

@@ -23,6 +23,7 @@ private:
      *
      */
     static vk::SurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats);
+
     /**
      * @brief Select the presentation mode best suited for the application.
      *
@@ -46,6 +47,12 @@ private:
      *
      */
     vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities);
+
+    /**
+     * @brief Select the number of images required to be available in the swap chain at minimum.
+     *
+     */
+    static uint32_t ChooseSwapMinImageCount(const vk::SurfaceCapabilitiesKHR& capabilities);
 
     /**
      * @brief Makes SDL create a Vulkan-compatible window on our behalf
@@ -164,6 +171,31 @@ private:
      *
      */
     SDL_Window* mpSDLWindow { nullptr };
+
+    /**
+     * @brief Handle to the swap chain we created for this application.
+     *
+     */
+    vk::raii::SwapchainKHR mSwapChain { nullptr };
+
+    /**
+     * @brief The actual 2D images used as render targets by our application
+     *
+     */
+    std::vector<vk::Image> mSwapChainImages {};
+
+    /**
+     * @brief The chosen format for our surface, usually 8 bits per color channel
+     * in non-linear space.
+     *
+     */
+    vk::SurfaceFormatKHR mSwapChainSurfaceFormat {};
+
+    /**
+     * @brief The dimensions of the texture being used as a render target, in pixels.
+     *
+     */
+    vk::Extent2D mSwapChainExtent {};
 };
 
 #endif
