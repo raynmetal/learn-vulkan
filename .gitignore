@@ -1,0 +1,8 @@
+# skip all build artifacts
+build
+
+
+# skip IDE-specific configurations
+.vscode
+compile_commands.json
+
